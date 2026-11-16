@@ -1,373 +1,90 @@
-# Unmark (`unmark-web`)
+# ai-watermark-remover
 
-[English](README.md) · [繁體中文](README.zh-TW.md)
+**사진과 글의 AI 태그를 제거하는 프로그램**
 
-**Removes the digital watermarks and provenance marks that AI tools leave on what they generate**: the invisible Unicode
-characters hidden in text, and the C2PA, EXIF, XMP and ID3 metadata carried inside image, audio and video files. It also
-tells you, honestly, which watermarks it cannot remove: statistical ones live in how tokens were sampled and pixel-domain
-ones live in the image itself, so no metadata strip touches them. The Inspector tab tests for those separately.
+AI로 만들거나 편집한 사진에는 "AI가 만들었음"을 알리는 메타데이터(C2PA 콘텐츠 자격 증명, EXIF/XMP의 `DigitalSourceType`, Stable Diffusion 프롬프트 등)가 함께 저장됩니다. AI가 쓴 글에는 눈에 보이지 않는 유니코드 문자가 섞여 있기도 합니다. ai-watermark-remover는 이런 흔적을 **스마트폰 브라우저 안에서** 지워 줍니다. 사진은 서버로 올라가지 않습니다.
 
-Independent, browser-first web client for **[guillaumemeyer/watermarks-remover](https://github.com/guillaumemeyer/watermarks-remover)**, inspired by and compatible with its HTTP API. Not affiliated with the upstream project.
-
-- **Runs entirely in the browser** for text (Layer A: invisible Unicode / homoglyph spaces), for PNG / JPEG / WebP / AVIF / HEIC / BMP / GIF / TIFF and MP4 / MOV / M4A / WAV / MP3 / FLAC metadata (C2PA, EXIF, XMP, text chunks, ID3), and for SVG / HTML / Markdown containers (metadata blocks, `<meta generator>`, JSON-LD provenance, AI provenance comments, frontmatter keys, embedded `data:` images). No uploads, no analytics, no web fonts, no third-party requests.
-- **Optionally drives the upstream Python service** (`server.py`) for everything else: PDF, DOCX, XLSX, PPTX, ODT, EPUB, LaTeX, and pixel-domain backends.
-- The JavaScript engines are **line-for-line ports of upstream's `text_unicode.py`, `image_meta.py`, `av_meta.py`, `score_stylometry.py` and `detect_gumbel.py`**, and a parity test suite asserts identical output (same characters kept/stripped, same bytes out of the image and media parsers, same stylometry numbers, same keyed-Gumbel p-value).
-- A **Watermark Inspector** tab runs every detector on one input and reports each separately across the character, metadata and statistical layers, and can re-run them after a Layer A clean to show what the cleaner did *not* touch. Keyed-Gumbel (EXP) detection runs in the page itself; the other statistical detectors (Kirchenbauer, SynthID-Text) run through an optional local sidecar.
-
-Live demo: [https://ivanusto.github.io/unmark-web/](https://ivanusto.github.io/unmark-web/) · Local: open `index.html` or run `python3 serve_local.py`.
+- 데모: https://jmni817.github.io/ai-watermark-remover/
+- 기반 프로젝트: [ivanusto/unmark-web](https://github.com/ivanusto/unmark-web) (MIT)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
-  <img alt="The Text tab in the browser: the pasted prose on the left, the cleaned copy on the right, a Findings row listing the removed soft hyphen, zero-width and no-break spaces and the normalised ideographic space, and below them the optional AI rewrite panel, ready but not yet run." src="docs/screenshot-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-mobile-ko-dark.png">
+  <img alt="아이폰 크기 화면의 ai-watermark-remover. 상단에 서비스 이름과 언어 선택, '파일은 이 기기 밖으로 나가지 않아요' 안내, 사진·파일 / 글 / 정밀 검사 탭, '눌러서 사진 선택' 영역과 '색상 프로파일(ICC) 유지' 옵션이 보인다." src="docs/screenshot-mobile-ko-light.png" width="320">
 </picture>
 
-## What it does (and does not)
+## 주요 기능
 
-| Input | Browser engine | Server engine (`server.py`) |
-| --- | --- | --- |
-| Pasted text / `.txt` | Layer A: zero-width & bidi controls, variation selectors, tag chars, PUA, Unicode noncharacters, reserved default-ignorables, other `Cf`; space homoglyphs; optional NFKC / Latin confusables. Preserves load-bearing invisibles (emoji ZWJ/VS16, Persian/Indic ZWNJ, flag tags, Mongolian FVS, Khmer vowels, Hangul fillers, Arabic Cf, and layout format controls next to their own script: Egyptian quadrat, Duployan, musical beaming) exactly like upstream, with a "paranoid" toggle. | same |
-| `.md` `.html` `.svg` | full container cleaning, then Layer A over the body. SVG: `<metadata>` and `<x:xmpmeta>` blocks, XML DOCTYPE/ENTITY declarations, comments carrying AI markers, generator-like root attributes. HTML: `<meta>` tags that name a generator, JSON-LD provenance blocks, `<!-- -->` comments that name an AI tool or say AI-generated, C2PA or content credential, `data-ai*` attributes. Markdown: AI frontmatter keys with the nested lines under them, except in a Claude Code agent or skill definition, whose `model` and `tools` are configuration rather than provenance, and the same comments outside fenced code blocks. All three: embedded `data:image/…` payloads, run back through the image strippers. A file that is not valid UTF-8 comes back byte for byte, minus what was removed. | same, plus the ZIP and PDF containers |
-| PNG / JPEG / WebP / AVIF / HEIC | drops `tEXt/zTXt/iTXt/eXIf/caBX/c2*` chunks, `APPn` (except JFIF) + `COM` segments, `EXIF/XMP/ICCP/C2PA` RIFF chunks with VP8X flag fix-up, and `jumb/c2pa/uuid` ISOBMFF boxes plus their `meta` sub-boxes, covering both the XMP user type and C2PA's content-provenance user type `d8fec3d6-...`. Pixels are untouched (no canvas re-encode). "Keep non-AI metadata" mode only drops blocks with AI/C2PA hints. | same, plus optional pixel-domain backends if installed |
-| BMP / GIF / TIFF | BMP: drops the trailing bytes after the pixel payload (the only place BMP metadata can live) and rewrites the file-size field. GIF: drops comment and XMP/unknown application extensions, keeping NETSCAPE2.0 looping and ICC. TIFF (classic and BigTIFF): walks the IFD chains and drops XMP/EXIF/GPS/IPTC/Photoshop/MakerNote tags, patching each IFD in place so strip and tile offsets stay valid. | same |
-| PDF / DOCX / ODT / EPUB | no (needs server) | yes |
-| MP4 / MOV / M4A / M4V / WAV / MP3 / FLAC | drops the `jumb/c2pa/uuid` ISOBMFF boxes an MP4 shares with AVIF and HEIC, plus `moov/udta` generator tags; WAV `C2PA`, `LIST INFO` and `id3 ` chunks; ID3v2 frames in MP3, and C2PA's `GEOB application/c2pa` frame in FLAC. Samples and frames are never touched. Read through `File.slice()`, so a long recording costs no more memory than a short one. | same |
-| Statistical text watermarks (Kirchenbauer / KGW, SynthID-Text) | **detect only**, via the optional local [sidecar](sidecar/README.md) (needs a model and the generator's key); never removed, see upstream Layer B for rewriting | via upstream `/detect` (MarkLLM harness) when the server advertises text detectors |
-| Pixel watermarks (SynthID image, …) | **no** | via upstream backends only |
+| 대상 | 하는 일 |
+| --- | --- |
+| 사진 (JPG, PNG, WebP, HEIC, AVIF 등) | C2PA, EXIF, XMP, PNG 텍스트 청크 등 메타데이터 블록을 제거합니다. 픽셀은 다시 인코딩하지 않으므로 화질이 그대로입니다. |
+| 글 | 제로폭 문자, 방향 제어 문자 같은 보이지 않는 유니코드와 특수 공백을 정리합니다. 이모지나 한글 채움 문자처럼 필요한 문자는 남깁니다. |
+| 정밀 검사 | 파일이나 글에 남아 있는 AI 흔적을 종류별로 보여 줍니다. |
+| 동영상·음성 (MP4, MOV, MP3, WAV 등) | 메타데이터만 제거하고 영상과 소리는 건드리지 않습니다. |
 
-Three consequences of the container rules that surprise people:
+**지우지 못하는 것**: 이미지 픽셀 자체에 새겨진 워터마크(SynthID 등)와 화면에 보이는 로고 워터마크는 메타데이터가 아니라서 이 프로그램으로 제거되지 않습니다. 정밀 검사 탭은 이런 한계를 숨기지 않고 따로 표시합니다.
 
-* **A cleaned AVIF or HEIC is the same size as the original.** A dropped ISOBMFF box is
-  overwritten with an equal-size `free` box rather than spliced out, because closing the gap
-  would shift every absolute media offset later in the file and break the image. The metadata
-  really is gone: the `free` payload is zeroed.
-* **A truncated file keeps its truncated tail.** If a download was interrupted, the last PNG
-  chunk or ISOBMFF box declares more bytes than the file holds. That tail is copied through
-  verbatim and reported as an action, so a recoverable image is not turned into an unopenable
-  husk that claims it was already clean.
-* **Audio and video never enter memory.** Both the clean tab and the Inspector read box and
-  chunk headers through `File.slice()`, so a multi-gigabyte recording is handled without
-  holding it and the 64 MiB limit does not apply to it. Only the metadata regions are read.
-  Images and text are still read whole in both tabs, and keep the limit: the parsers that
-  handle them want the bytes.
+## 사용 방법
 
-## Connecting a server
+1. 휴대폰에서 데모 페이지를 엽니다.
+2. **사진·파일** 탭에서 "눌러서 사진 선택"을 누르고 사진을 고릅니다.
+3. 처리가 끝나면 **사진에 저장 / 공유**를 눌러 갤러리에 저장합니다. 이 버튼을 지원하지 않는 브라우저에서는 **다운로드**를 누르면 됩니다.
 
-`server.py` binds to `127.0.0.1:8765`, sends **no CORS headers**, and may require a bearer token, all by design. Three ways to use it from this UI:
+## 원작과 달라진 점
 
-1. **`serve_local.py` (recommended)**: stdlib, loopback-only static server that proxies `/api/*` to `server.py`, so the browser talks same-origin:
-   ```bash
-   # terminal 1: upstream service
-   python3 service/scripts/server.py                     # from the upstream checkout (or its Docker image)
-   # terminal 2: this UI
-   python3 serve_local.py --upstream http://127.0.0.1:8765 [--api-key "$WATERMARKS_SERVER_API_KEY"]
-   # open http://127.0.0.1:8766/  → the UI auto-selects /api
-   ```
-2. **Any reverse proxy** that serves this directory and forwards a path to `server.py`; enter that path (e.g. `/api`) or URL in ⚙️ *Server connection*.
-3. **Direct URL** (e.g. from the GitHub Pages build), which only works if something in front of the server allows this page's origin via CORS. Upstream deliberately ships **no** CORS support in `server.py` (the API is meant to be server-to-server; see [issue #77](https://github.com/guillaumemeyer/watermarks-remover/issues/77) and [PR #78](https://github.com/guillaumemeyer/watermarks-remover/pull/78)), so this means your own reverse proxy in front of it. Do **not** put a wildcard CORS header on the API.
+[ivanusto/unmark-web](https://github.com/ivanusto/unmark-web)의 엔진은 그대로 쓰고, 한국 사용자와 모바일 환경에 맞춰 다음을 바꿨습니다.
 
-The API key is only sent as `Authorization: Bearer …` to the URL you configured, and only stored in `localStorage` if you tick *Remember in this browser*.
+- **한국어 지원**: 화면 문구 230개를 번역했고, 한국어를 기본 언어로 설정했습니다. 원작의 다국어 키 일치 테스트를 통과합니다.
+- **모바일 우선 화면**: 가장 많이 쓰는 사진 탭을 첫 화면으로 옮겼습니다. 탭과 버튼은 엄지로 누르기 쉬운 크기(44~48px)로 키웠고, 375px 폭에서도 가로 스크롤이 생기지 않습니다. 한글이 어절 단위로 줄바꿈되도록 `word-break: keep-all`을 적용했습니다.
+- **한글 시스템 폰트**: Apple SD Gothic Neo, Noto Sans KR, 맑은 고딕 순으로 기기에 있는 폰트를 씁니다. 원작의 "외부 요청 없음" 원칙을 지키려고 웹폰트는 쓰지 않았습니다.
+- **사진에 바로 저장**: Web Share API로 공유 시트를 열어 갤러리에 저장할 수 있게 했습니다. 다운로드 폴더를 거치지 않아도 됩니다.
+- **색상 프로파일 유지 옵션**: 아이폰의 Display P3 사진은 ICC 프로파일을 지우면 색이 바랩니다. AI 표시가 없는 ICC 프로파일은 남기는 옵션을 추가하고 기본으로 켰습니다. 엔진의 기본 동작은 바꾸지 않아서 원작과의 동일성(parity) 테스트는 그대로 통과합니다.
+- **Windows 로컬 서버 수정**: Windows 레지스트리가 `.js`를 `text/plain`으로 등록해 둔 환경에서 스크립트가 실행되지 않던 문제를 `serve_local.py`에서 고쳤습니다.
 
-## AI rewrite (optional, local only)
+## 구조
 
-Cleaning strips the marks; it does not touch the prose. If you also want the text rewritten out of its AI cadence, `serve_local.py` can proxy an **OpenAI-compatible chat endpoint of your own**: a local model runner, or anything else you host:
+빌드 과정이 없는 정적 웹사이트입니다(HTML, CSS, 순수 JavaScript).
+
+```
+index.html            화면
+css/app.css           스타일 (끝부분에 한국어·모바일 레이어)
+js/i18n.js            다국어 문구 (ko, en, zh-Hant, zh-Hans)
+js/app.js             화면 동작, 저장/공유
+js/engine.js          Web Worker 실행
+js/worker.js          Web Worker 본체
+js/engine_ops.js      Worker 안에서 돌아가는 작업
+js/image_meta.js      사진 메타데이터 제거 (원작 Python 코드의 JS 이식)
+js/layer_a.js         보이지 않는 유니코드 제거
+js/av_meta.js         동영상·음성 메타데이터 제거
+serve_local.py        로컬 개발용 서버
+tests/                원작과의 동일성 테스트, 다국어 키 테스트
+```
+
+사진은 `File` 객체를 바이트 배열로 읽어 컨테이너 구조(JPEG 세그먼트, PNG 청크, RIFF 청크, ISOBMFF 박스)를 따라가며 메타데이터 블록만 잘라냅니다. 캔버스로 다시 그리지 않으므로 픽셀 데이터는 원본과 같습니다.
+
+## 로컬에서 실행
 
 ```bash
-# --llm-upstream  base URL, without the /v1 suffix
-# --llm-model     optional; prefills the model field
-# --llm-api-key   optional; stays server-side
-python3 serve_local.py \
-  --llm-upstream http://<your-llm-host>:<port> \
-  --llm-model <model-id> \
-  --llm-api-key "$YOUR_KEY"
-
-# equivalently: UNMARK_LLM_URL / UNMARK_LLM_MODEL / UNMARK_LLM_API_KEY
-# (also UNMARK_HOST / UNMARK_ALLOW / UNMARK_LLM_EXTRA / UNMARK_LLM_TIMEOUT)
+python serve_local.py
 ```
 
-A *Rewrite* panel then appears under the cleaned text, with an editable instruction prompt. It sends `POST /llm/v1/chat/completions` **same-origin**, so the key never enters the browser and the watermarks service's own bearer token is never attached to it.
+브라우저에서 `http://127.0.0.1:8766`을 엽니다. `index.html`을 직접 열어도 동작합니다.
 
-The panel has two strengths and an optional recheck loop:
-
-- **Light** keeps the sentence structure and only cuts stock phrases. **Deep** (the default) may merge, split and reorder sentences and paragraphs as long as the argument, facts, numbers and names stay. Each strength has its own default prompt; a prompt you edit by hand is kept across strength switches, an untouched one follows the strength and the interface language.
-- **Recheck** (on by default, Chinese text only, at most 2 rounds): the page scores the reply with the zh-style heuristic below, names the sentences that still carry a hit, and asks the model to fix just those. A failed round keeps the last good output.
-- Under the result a one-line meter shows the zh-style score and hit count before and after. It is a yardstick, not a verdict.
-
-Measured on the 24-article model-written zh-TW set: mean score 0.468 (source) -> 0.347 light -> 0.181 deep -> 0.027 deep + recheck. Arabic numerals and Latin names were retained 100%, and the length ratio was 0.92x. Caveat: the recheck targets exactly what the meter measures, so that drop is not independent evidence that the text reads as human-written. The independent check, [Fast-DetectGPT](#fast-detectgpt-zero-shot-on-the-sidecar), barely moves.
-
-Three things worth being explicit about:
-
-- **It is off by default.** With no `--llm-upstream`, `/llm/*` answers 404 and the panel is not rendered at all.
-- **The hosted build cannot offer it.** [The demo](https://ivanusto.github.io/unmark-web/) is HTTPS, and browsers block an HTTPS page from calling a plain-HTTP local endpoint. This is a `serve_local.py` feature by construction, not an oversight.
-- **Cleaning stays offline; rewriting does not.** Text you rewrite is sent to the endpoint you configured. Everything on the *Text* and *Files* tabs is still processed in the page unless you connect a server.
-
-### LAN deployment
-
-By default `serve_local.py` listens on `127.0.0.1` only. To share it with other machines on your network:
+테스트:
 
 ```bash
-python3 serve_local.py --host 0.0.0.0 --allow <lan-cidr>      # e.g. 192.0.2.0/24
+pip install -r requirements-dev.txt
+git clone https://github.com/guillaumemeyer/watermarks-remover upstream
+WATERMARKS_UPSTREAM_DIR="$PWD/upstream" pytest tests/ -q
 ```
 
-There is **no login**. Anyone `--allow` lets in can spend your LLM endpoint quota and use the statistical-watermark sidecar. Restrict `--allow` to your LAN subnet, and do not port-forward this port to the internet. Without `--allow`, a non-loopback `--host` prints a warning at startup. Loopback is always allowed. Behind Docker bridge networking with the userland proxy, the client address can appear as the bridge gateway, so use host networking if you rely on `--allow`.
+## 앞으로 할 일
 
-Two more options help with shared or reasoning models:
+- 실제 아이폰과 갤럭시에서 공유 저장, HEIC 처리 확인
+- Capacitor로 감싸 Android, iOS 앱으로 출시
 
-- `--llm-extra '{"chat_template_kwargs":{"enable_thinking":false}}'` is merged into every rewrite request server-side (top-level keys override the browser's; nested objects are merged one level deep). Useful for reasoning models whose thinking tokens some proxies do not forward.
-- `--llm-timeout <seconds>` (default 300) bounds the wait for the LLM endpoint; the page adapts its own timeout to it.
+## 크레딧과 라이선스
 
-The hosted GitHub Pages build still cannot use any of this.
+이 프로젝트는 [ivanusto/unmark-web](https://github.com/ivanusto/unmark-web)(MIT)을 기반으로 하며, 그 엔진은 [guillaumemeyer/watermarks-remover](https://github.com/guillaumemeyer/watermarks-remover)(MIT)의 규칙을 JavaScript로 옮긴 것입니다. 두 프로젝트와 공식적인 관계는 없습니다.
 
-## Watermark Inspector
-
-The *Inspector* tab is a detection lab, deliberately separated from the cleaners. It runs every registered detector on the same input and shows one row per detector, grouped by layer:
-
-| Layer | Detectors | Where it runs | What a hit means |
-| --- | --- | --- | --- |
-| **Character** | invisible / format Unicode, bidi controls, homoglyphs & exotic spaces | browser (`js/layer_a.js`) | deterministic: Layer A can strip it, and re-inspecting proves it |
-| **Metadata** | C2PA / Content Credentials, XMP, EXIF / TIFF tags, AI-generator markers, other | browser (`js/image_meta.js`) | provenance or generator metadata is present in the container |
-| **Statistical** | keyed-Gumbel / EXP, Kirchenbauer (KGW green-list), SynthID-Text, upstream `/detect`, TextSeal (placeholder), stylometry (heuristic, English), zh-style (heuristic, Chinese) | browser (`js/gumbel.js`) / local sidecar / upstream server | the token sequence carries a sampling watermark **for the key you tested**, nothing more |
-
-Every detector returns the same shape, and *Copy JSON report* exports exactly that:
-
-```json
-{ "detector": "synthid-text", "layer": "statistical",
-  "status": "detected | clean | uncertain | unavailable | not_tested | not_applicable | error",
-  "confidence": 0.97, "score": 0.97, "threshold": 0.93,
-  "evidence": [{ "label": "posterior", "detail": "0.9712" }],
-  "note": null, "requires_key": true, "requires_model": true, "local": true, "heuristic": false,
-  "meta": { "model": "Qwen/Qwen3-4B-Instruct-2507", "key_profile": "a", "tokens": 412 } }
-```
-
-Three rules the UI enforces, because honesty is the feature:
-
-- **Detector and cleaner are separate.** *Clean (Layer A) & re-inspect* runs the cleaner once and shows every detector before / after with a *changed?* column. When the statistical rows come back identical, the Overall box says so: *Layer A cleaning did not affect the statistical watermark detectors.*
-- **A heuristic can never say "detected".** Stylometry (burstiness, MATTR, AI-phrase density, ported from upstream's `score_stylometry.py`) is capped at *uncertain* and labelled *heuristic* on the row.
-- **"Unavailable" is not "clean".** Most statistical detectors need the generator's key, tokenizer and a model. On the hosted HTTPS page those report *unavailable*, and the Overall line says statistical watermarks were not tested there and cannot be ruled out. A *clean* is likewise scoped to the key and scheme you tested.
-
-### Chinese AI-cadence heuristic (zh-style)
-
-`js/stylometry.js` is a faithful port of upstream's English-only stylometry: its phrase table is English and it splits sentences on `[.!?]`. On Chinese text it is meaningless (textbook model Chinese scores "low" with zero hits), so it now reports *not applicable* on CJK-dominant input. [`js/zh_style.js`](js/zh_style.js) is the Chinese counterpart. It is a **repo-owned heuristic, not an upstream port**, so it has no parity test and no upstream anchor. It looks for stock transitions, scene-setting openers, summarising and aphoristic closers, inflated vocabulary, "not X but Y" reframes, first/second/finally scaffolding and uniform sentence length, in both Traditional and Simplified text. Like stylometry it is capped at *uncertain*.
-
-Calibration, stated as measured:
-
-- Tuning set: 24 model-written zh-TW articles against 23 pre-2022 zh.wikipedia excerpts, AUC 0.986.
-- Held-out: 16 shorter model-written blog, news and product texts (half of them prompted to avoid AI phrasing) against the same human set, AUC 0.745.
-- The highest human score was 0.19 and the threshold is 0.35, so there were 0 human false positives, but recall is low on short or deliberately plain text.
-- Short paragraphs: density is divided by at least 500 characters, otherwise a single structural hit (uniform sentence length, say) carries a 150-character paragraph over the threshold. On the same human set cut into 49 excerpts of 150 to 300 characters: 1 false positive (max 0.53) without the floor, 0 (max 0.22) with it; full-length documents score the same.
-
-Conclusion: use it as a rewrite meter, not a verdict.
-
-### Fast-DetectGPT (zero-shot, on the sidecar)
-
-When the [statistical sidecar](#statistical-sidecar-optional-local-only) is running, the Inspector adds a **Fast-DetectGPT** row ([Bao et al., ICLR 2024](https://arxiv.org/abs/2310.05130)), and the rewrite panel shows its before/after score next to the zh-style meter. It needs no key and works on any model's output: it asks how much less surprising the text is to a scorer model than that model's own samples would be (analytic criterion, `Qwen/Qwen3-0.6B-Base` as sampler, `Qwen/Qwen3-0.6B` as scorer, first 1024 tokens). It is still a heuristic, capped at *uncertain*, and formal or formulaic human prose can score high.
-
-Measured on 46 human Chinese texts (23 pre-2022 zh.wikipedia excerpts and 23 news wire articles from October 2026) against 40 model-written zh-TW articles:
-
-| Sampler → scorer | AUC |
-|---|---|
-| `Qwen3-4B-Instruct-2507` → itself (the sidecar's own model) | 0.54 |
-| `Qwen3-0.6B` → itself | 0.75 |
-| `Qwen3-0.6B-Base` → itself | 0.85 |
-| **`Qwen3-0.6B-Base` → `Qwen3-0.6B`** (shipped) | **0.955** |
-| `Qwen3-1.7B-Base` → `Qwen3-1.7B` | 0.955 |
-
-An instruct model scoring itself is close to chance, which is why the sidecar loads a separate base/instruct pair rather than reusing its 4B model. The 0.6B pair is the one that fits beside the 4B model on a 12 GB card, and the 1.7B pair was no better at low false-positive rates. The threshold, 1.9, sits above every human text in the set (max 1.85): 0/46 human false positives, 29/40 model-written texts flagged.
-
-What it says about the rewrite: flagged 29/40 before, 28/40 after a deep rewrite and 26/40 after deep + recheck; the median criterion went from 2.18 to 2.29. A rewrite by an LLM removes the phrasing the zh-style meter looks for, but the text stays just as predictable to a language model.
-
-### Keyed-Gumbel (EXP), in the browser
-
-The one statistical detector that needs no sidecar, no model weights and no network: a port of upstream's `detect_gumbel.py` into [`js/gumbel.js`](js/gumbel.js), with its own SHA-256 and HMAC so it runs synchronously and works from `file://` as well as from the hosted page. Open **Keyed-Gumbel (EXP) key** on the Inspector tab and paste the key the text was generated with (a passphrase, or `0x…` for raw bytes). The key is held in the page for the length of the run: it is never stored, never sent anywhere, and never written into the JSON report.
-
-The detector replays the keyed sampler's noise from the text alone. For each position it derives `seed = HMAC(key, last H tokens)` and `u = HMAC(seed, token)`, sums `-log(1 - u)`, and compares that against the `Gamma(counted, 1)` distribution it would follow if nothing were watermarked. Repeated context windows are skipped, because the generator falls back to ordinary randomness when a window recurs.
-
-Read the result the way upstream intends it:
-
-- It is a **same-key replay**. It is valid only against the key, tokenizer and PRF layout used at generation, which in practice means a self-hosted engine you control.
-- A **negative proves nothing**. Unwatermarked text, another provider's key and human writing all sit at chance, which is why the row says *not this key* rather than *no watermark*.
-- The PRF layout is a **clean-room instantiation** of the scheme (HMAC-SHA256 over packed token ids), auditable but not bit-compatible with any particular engine's kernel. Exact replay against a real engine needs that engine's tokenizer and PRF.
-
-The default context window is 4 tokens and the default verdict threshold is `p < 1e-6`; both are adjustable next to the key field. The score column shows `-log10(p)` against `-log10(threshold)`, so bigger is stronger evidence, and the exact p-value is the first evidence row.
-
-### Statistical sidecar (optional, local only)
-
-[`sidecar/unmark_stat.py`](sidecar/README.md) is a small Python service (PyTorch + 🤗 Transformers, GPU recommended) that scores text with the reference Kirchenbauer and SynthID-Text detectors from `transformers`, using **public experiment keys** and the independently trained SynthID Bayesian detectors from [`xlr8harder/synthid`](https://github.com/xlr8harder/synthid) (MIT) for `Qwen/Qwen3-4B-Instruct-2507`. It can also *generate* a watermarked sample with a chosen key, so you can run the demonstration end to end. It also hosts the keyless [Fast-DetectGPT](#fast-detectgpt-zero-shot-on-the-sidecar) row:
-
-```bash
-# terminal 1: the sidecar (first run downloads the model and detector bundles)
-python -m venv sidecar/.venv && sidecar/.venv/bin/pip install -r sidecar/requirements.txt
-sidecar/.venv/bin/python sidecar/unmark_stat.py            # 127.0.0.1:8767
-
-# terminal 2: this UI, proxying /stat/* to it
-python3 serve_local.py --stat-upstream http://127.0.0.1:8767
-```
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-inspector-dark.png">
-  <img alt="The Inspector tab after &quot;Clean (Layer A) &amp; re-inspect&quot; on a SynthID-watermarked sample: the character layer goes from 30 zero-width spaces to clean, while Kirchenbauer stays clean and SynthID-Text stays detected with the same verdict; the Overall box says Layer A cleaning left every statistical verdict unchanged." src="docs/screenshot-inspector-light.png">
-</picture>
-
-Then, in the Inspector: *Generate* with SynthID-Text and key **A** → *Inspect* with key A (detected) → switch to key **B** (clean / uncertain) → *Clean (Layer A) & re-inspect* (scores unchanged). Two worlds: the character layer goes to zero, the statistical layer does not move.
-
-Limits, stated plainly: detection is only valid for the **same scheme, the same key and the same tokenizer** as generation; text from a model whose keys you do not hold cannot be judged, and the sidecar says *clean for this key*, never *not watermarked*. Like the rewrite panel, it is a `serve_local.py` feature, because the hosted page cannot reach a plain-HTTP loopback service.
-
-## Development
-
-```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-git clone https://github.com/guillaumemeyer/watermarks-remover ../watermarks-remover     # for parity tests
-WATERMARKS_UPSTREAM_DIR=../watermarks-remover .venv/bin/pytest -q
-node scripts/check-upstream.mjs                                                          # upstream hash drift
-```
-
-There is no `package.json` here, because nothing at runtime or in the test suite needs npm, so the upstream check runs straight through `node`, exactly as [the workflow](.github/workflows/upstream-check.yml) does. It exits `0` when the recorded hashes still match, `1` on drift, and `2` when it could not check at all (network, rate limit, bad manifest), so an unreachable source is never reported as drift.
-
-- `js/layer_a.js`: port of `text_unicode.py` (`clean`, `inspect`, `decide`)
-- `js/image_meta.js`: port of `image_meta.py` (PNG/JPEG/WebP/AVIF/HEIC/BMP/GIF/TIFF inspect + strip)
-- `js/av_meta.js`: port of `av_meta.py` (MP4/MOV/M4A/M4V, WAV, MP3, FLAC inspect + strip; MP4 reuses the ISOBMFF box walker that already backs AVIF and HEIC)
-- `js/pyre.js`: Python `re` and `str` semantics (`\w`, `\b`, `\s`, `\d`, `.`, `str.strip`, `str.splitlines`, `IGNORECASE`) for the ports that have to match CPython exactly rather than approximately
-- `js/container_meta.js`: port of the text-markup half of `container_meta.py` (SVG, HTML and Markdown frontmatter inspect + strip, embedded `data:image/...` URIs routed back through the image strippers, the shared generator-name vocabulary). The ZIP and PDF halves of that file are not ported and have no browser counterpart.
-- `js/stylometry.js`: port of `score_stylometry.py` (burstiness / MATTR / AI-phrase density; heuristic, not a watermark detector)
-- `js/zh_style.js`: repo-owned Chinese AI-cadence heuristic (not an upstream port; see the zh-style section above)
-- `js/gumbel.js`: port of `detect_gumbel.py` (keyed-Gumbel / EXP same-key replay, with its own synchronous SHA-256 and HMAC so it needs neither `crypto.subtle` nor a secure context)
-- `js/engine.js`, `js/engine_ops.js`, `js/worker.js`: the engine work runs in a Web Worker when the browser allows one. `engine_ops.js` holds the op table with no DOM in it and is loaded by both sides, so the worker path and the same-thread path run the same code rather than two copies of it. The engines are not in the page's script tags at all: the worker loads its own copy, so the main thread never fetches or compiles them. A page opened straight off the filesystem cannot start a worker: `engine.js` then loads them into the page itself and calls the same table in place, and callers cannot tell the difference.
-- `js/detectors.js`: the Inspector's detector registry: one result contract for the character, metadata and statistical layers, plus `summarize()` / `compare()` for the Overall box and the before/after view
-- `js/api.js`: client for `/health /capabilities /inspect /clean /detect`, plus the optional `/llm-config` + `/llm` rewrite calls and `/stat-config` + `/stat` sidecar calls
-- `js/i18n.js`, `js/app.js`, `css/app.css`, `index.html`: UI (English / 繁體中文 / 简体中文, light/dark, keyboard-accessible). The locale is picked from `navigator.languages` and remembered in `localStorage`; adding a language is one entry in `LANGS` plus one dictionary in `js/i18n.js`.
-- `tests/test_layer_a_parity.py`, `tests/test_image_meta_parity.py`, `tests/test_av_meta_parity.py`, `tests/test_stylometry_parity.py`, `tests/test_gumbel_parity.py`, `tests/test_container_meta_parity.py`, `tests/test_contains_any_parity.py`, `tests/test_c2pa_prov_scan_parity.py`, `tests/test_finding_confidence_parity.py`: cross-engine parity vs the upstream checkout (skipped if `node` or the checkout is missing, so the suite is run with `-rs`)
-- `tests/test_pyre_semantics.py`: `js/pyre.js` against CPython's `re` directly, rather than only through the ports that use it. A translation rule no shipping pattern happens to exercise is invisible to every parity suite.
-- `tests/test_i18n_keys.py`: every locale carries every key, and every `data-i18n` attribute in `index.html` resolves. A gap there is invisible at runtime, because `t()` falls back silently.
-- `tests/test_av_exts_consistency.py`: the audio/video extension list `js/app.js` owns matches `AvMeta.AV_EXTS`. The page needs it before any engine is loaded, so it cannot read the engine's copy.
-- `serve_local.py`: same-origin static + `/api` proxy, the optional `/llm` rewrite proxy and the optional `/stat` sidecar proxy
-- `sidecar/`: the statistical-detector sidecar (its own `requirements.txt`; never part of the page)
-- `scripts/check-upstream.mjs`: run it with `node scripts/check-upstream.mjs`; hashes the upstream Python modules against `scripts/upstream-sources.json` (a source can carry a `slice` to track one definition instead of a whole file, for modules this project mirrors only part of); `.github/workflows/upstream-check.yml` runs it and the parity suite daily and files an issue when either signal fires. Parity catches behaviour that changed; the hashes catch changes the fixtures do not reach, such as a newly supported format.
-
-No build step, no dependencies at runtime. CSP: `default-src 'self'; connect-src *` (the latter so you can point at your own server).
-
-## Changelog
-
-Full notes on each [release](https://github.com/ivanusto/unmark-web/releases).
-
-### [v0.9.2](https://github.com/ivanusto/unmark-web/releases/tag/v0.9.2)
-
-- **A Markdown frontmatter value that runs over several lines is now scanned whole.** A `key: >` or `key: |` block scalar, a wrapped plain value and a `- item` list all carry the value on the lines after the key, and both engines read it from the key's own line only, so `generated by ChatGPT` on a continuation line survived a clean. [#402](https://github.com/guillaumemeyer/watermarks-remover/pull/402) joins the continuation lines before the value check, in `inspect_markdown` and `clean_markdown` alike, and the clean drops the whole key as it already did for a hit on the first line. Blank lines and comments inside the block are skipped, and an agent definition's multi-line `description` is still checked.
-- **A `>` inside a quoted `<meta>` value no longer ends the tag.** [#401](https://github.com/guillaumemeyer/watermarks-remover/pull/401) makes the tag match skip quoted attribute values, so `content="Compare Claude > GPT-4o"` is read as one tag: the owner's own description is no longer flagged, nothing is left behind as stray text after a clean, and a marker behind the `>` is no longer hidden.
-- **`_meta_attrs` is a single forward scan.** [#407](https://github.com/guillaumemeyer/watermarks-remover/pull/407) replaces the backreference regex, which CodeQL flags as polynomial ReDoS on a tag from an uploaded document. The rules are the old ones: substring match on the attribute name (`filename="x"` still yields `name`), whitespace around `=`, an unquoted value or an unclosed quote is not read, and a later attribute wins.
-- **`data-aid` and `data-airline` are no longer taken for AI attributes.** [#400](https://github.com/guillaumemeyer/watermarks-remover/pull/400) lets the `data-ai` match continue only after a `-` or `_`, so the bare `data-ai`, `data-ai-*` and `data-ai_*` are still found and stripped and an ordinary application attribute is left alone.
-- The web-extension strings added to `classify_finding_confidence` are ported verbatim. This port never produces those findings: the OOXML web-extension scan ([#380](https://github.com/guillaumemeyer/watermarks-remover/pull/380), [#394](https://github.com/guillaumemeyer/watermarks-remover/pull/394)) is not ported.
-- 1865 tests, twelve upstream anchors, three of them moved to upstream `5c18093`.
-
-### [v0.9.1](https://github.com/ivanusto/unmark-web/releases/tag/v0.9.1)
-
-- **A few bytes of padding after the last box no longer bring the byte scan back.** v0.9.0 followed #371 in scanning a container's raw bytes for C2PA markers only when its box walk stopped early, but the test was "stopped before the end of the file". The walk needs 8 bytes to read a box header, so a complete MP4, AVIF or HEIC with 1 to 7 bytes of trailing padding passed it, and a `c2pa` that happened to sit in the media was reported as a manifest. [guillaumemeyer/watermarks-remover#382](https://github.com/guillaumemeyer/watermarks-remover/pull/382) asks for at least 8 bytes left over, the same threshold the cleaners already use to tell a truncated file. Both drivers follow it. A real truncation, including a content-provenance box cut off before any ASCII marker, is still caught.
-- 1778 tests, twelve upstream anchors, one of them moved to upstream `c5297e9`.
-
-### [v0.9.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.9.0)
-
-- **HTML and Markdown lose the comments that say who wrote them.** A `<!-- generated by ChatGPT -->` survived cleaning in both formats; only SVG handled provenance comments. [guillaumemeyer/watermarks-remover#366](https://github.com/guillaumemeyer/watermarks-remover/pull/366) reports and drops a `<!-- -->` comment that names an AI tool or says AI-generated, C2PA or content credential, so a static site generator's own comment and a `<!-- toc -->` marker stay. In Markdown, comments inside a fenced code block are left alone, with CommonMark's rules for where a fence opens and closes: a line such as `` ``` not a close `` does not end one, and a backtick fence whose info string holds a backtick is not a fence. The fence scanner is written out by hand rather than with a multiline regex, because JavaScript's `^` and `$` also hold at a lone carriage return and at U+2028, where Python's hold only at a line feed.
-- **An apostrophe no longer turns a page description into provenance.** `<meta name="description" content="Bob's favorite Claude Code skills">` was reported as AI metadata and deleted: the attribute patterns stopped a value at *either* quote character, so the value was never blanked and "Claude" was matched as a name. [#373](https://github.com/guillaumemeyer/watermarks-remover/pull/373) reads a value up to its real closing quote. It cuts the other way too: `content="Bob's C2PA manifest"` used to parse as `Bob` and now flags.
-- **Marker bytes inside a complete video or image are no longer a C2PA finding.** Coded media contains short ASCII strings like `jumb` or `c2pa` by chance, and inspection fell back to scanning the whole file for them even when every box had parsed. [#371](https://github.com/guillaumemeyer/watermarks-remover/pull/371) keeps that scan only for a box walk that stopped early, a truncated download, which is what it was for. Both drivers follow it, and the slice driver gains the most: inspecting a complete 128 MiB MP4 used to read the file twice over (256 MiB, 395 ms in Node); it now reads 176 bytes of box headers and takes under a millisecond.
-- **The U+0130 divergence is over.** Upstream fixed [#354](https://github.com/guillaumemeyer/watermarks-remover/issues/354) in [#364](https://github.com/guillaumemeyer/watermarks-remover/pull/364) the same way this port always worked, lowercasing ASCII only. The two tests that asserted the divergence in both directions now assert agreement on the inputs that used to separate them.
-- **`js/pyre.js` translates `.` and `\d` the way CPython reads them.** Python's `.` refuses only a line feed, where JavaScript's also refuses a carriage return, U+2028 and U+2029; Python's `\d` matches any Unicode decimal digit, where JavaScript's is ASCII. The new patterns were the first to lean on either, and four of the new fixtures fail, in inspect and in clean, without the translation.
-- 1691 tests, twelve upstream anchors, five of them moved to upstream `258cf20`.
-
-### [v0.8.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.8.0)
-
-- **A document is no longer lowercased in full, twice, to find two substrings.** The scanners for `<script` and `data:image/` copied the whole file with its ASCII letters lowered and searched the copy, which is what upstream does in Python. Searching the original case-insensitively finds the same offsets without the copy, and it is the same ASCII-only rule this port already chose over upstream's length-changing `str.lower()`. On a 3 MiB page carrying a 1.5 MB embedded image, cleaning went from 1874 ms to 1081 ms in the browser, and the engine-only pass from 1429 ms to 160 ms.
-- **UTF-8 in and out takes the platform decoder when it can.** `decodeUtf8` tries `TextDecoder` in fatal mode first, which succeeds only on well-formed input, where both of CPython's error handlers are unreachable and the answer is the same; `encodeUtf8` uses `TextEncoder` unless the string carries a lone surrogate, which is the only thing the two disagree about. The hand-written scanners stay for everything else, because that is where CPython's exact reporting of a broken sequence lives. 329 ms to 9 ms for a 3 MiB decode, 138 ms to 12 ms for the encode. `ignoreBOM` is set, because without it `TextDecoder` swallows a leading U+FEFF and Python does not, and there is now a fixture that fails if it is ever dropped.
-- **Base64 and percent-encoding stopped building their output a byte at a time.** An embedded image is decoded and re-encoded in full every time a document carrying one is cleaned, so `b64decode` and `unquoteToBytes` write into a buffer sized once instead of pushing onto an array, and `b64encode` and `quoteFromBytes` read from precomputed tables.
-- **The Inspector no longer reads a file on the thread that draws the page.** It read every image whole, then had the bytes copied again into the worker, and neither copy was of any use to the page: only the engine wants them. The `File` goes across instead and is read where it is used. Moving a 24 MiB file to the worker drops from 43 ms to 28 ms, and inspecting one from about 360 ms to about 340 ms, with one allocation of it instead of two.
-- **The first screen stops downloading the cleaning engines.** They are the bulk of this page's JavaScript and the worker loads its own copy, so having them in the page's script tags too bought nothing except on `file://`, where there is no worker. `js/engine.js` now loads them itself in that one case. First load goes from thirteen scripts and 103 KB of JavaScript to five and 41 KB, gzipped.
-- **A case-sensitive pattern no longer matches Turkish text CPython would not.** `js/pyre.js` widened a literal `i` to also match `ı` and `İ` whether or not the pattern asked for IGNORECASE. No shipping pattern happened to trigger it, which is exactly why nothing noticed; `tests/test_pyre_semantics.py` now pins the translation against CPython directly.
-- 1532 tests, twelve upstream anchors unchanged. No output changed anywhere: every one of these is checked byte for byte against upstream Python.
-
-### [v0.7.1](https://github.com/ivanusto/unmark-web/releases/tag/v0.7.1)
-
-- **Cleaning a Claude Code agent definition no longer deletes its tool grant.** A `.claude/agents/*.md` or `SKILL.md` carries `tools:` and `model:` in its frontmatter, and `tools` often names an MCP server with "claude" in it. Markdown cleaning drops the *whole key* when a value looks like provenance, so cleaning such a file removed the grant and the model: the file still parsed, the agent just quietly lost its configuration. [guillaumemeyer/watermarks-remover#345](https://github.com/guillaumemeyer/watermarks-remover/pull/345) exempts those keys when the frontmatter has the shape of an agent definition, `name` and `description` and either `tools` or `allowed-tools`, which is how the file is recognized without a path. Values are still scanned inside one, so `description: Generated with Claude Code` is still caught and still stripped; two of the three keys is ordinary frontmatter and gets no exemption.
-- **A key that names a producing tool is recognized in more spellings.** `generated-with:`, `generated_with:`, `made-with:`, `written-by:`, `produced_by:` and `authored-by:` now count as generator naming keys, so a bare vendor name in their value is provenance. In free prose, the phrasing `generated with`, `created by`, `written using` and the rest of that family is a marker on its own, which a bare vendor name is not: "Claude Monet painted this" is still a description.
-- New parity anchors: `container_meta.py` `#ai-vocabulary` `10bfb05e2945`, `#markdown` `868ad8818b39`. 1446 tests.
-
-### [v0.7.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.7.0)
-
-- **SVG, HTML and Markdown are cleaned here now, not on a server.** These three were in the accept list from the first release, but only as text: Layer A ran over the body and a findings line said the metadata inside needed the Python service. The text-markup half of upstream's `container_meta.py` is pure regex and string work with no zipfile, no PDF, no subprocess and no network, so it runs in a page unchanged. SVG loses its `<metadata>` and `<x:xmpmeta>` blocks, its XML DOCTYPE and ENTITY declarations ([#288](https://github.com/guillaumemeyer/watermarks-remover/pull/288)), comments carrying AI markers and generator-like root attributes; HTML loses `<meta>` tags that name a generator, JSON-LD provenance blocks and `data-ai*` attributes, while a plain CMS generator tag stays; Markdown loses AI frontmatter keys along with the nested lines under them. All three have their embedded `data:image/…` payloads run back through the PNG, JPEG, WebP and ISOBMFF strippers this port already had, and then Layer A over the body, which is the order upstream's `clean_container` uses.
-- **A file that is not valid UTF-8 comes back byte for byte.** Upstream decodes these formats with `surrogateescape` and re-encodes at the end; the page used to read them through `File.text()`, which substitutes replacement characters, so such a file came back rewritten rather than cleaned. Both of upstream's decode modes are written out by hand in `js/container_meta.js`, because `TextDecoder` offers neither, and they are tested against CPython directly over random bytes.
-- **One upstream defect this port does not copy.** `_iter_script_blocks` and `_iter_data_uris` lowercase the whole document to locate `<script` and `data:image/`, then index the original string with the result's offsets. That holds only while lowercasing preserves length, and `U+0130` (LATIN CAPITAL LETTER I WITH DOT ABOVE) lowercases to two characters, in Python and in JavaScript alike. With one such character earlier in the file, upstream's `inspect_html` reports nothing and its `clean_html` changes nothing for a document whose JSON-LD says `trainedAlgorithmicMedia`, and an embedded PNG parses as MIME type `ng` with a truncated payload. A single character of Turkish or Azerbaijani text is enough. This port lowercases ASCII only, which cannot change length. Reported as [guillaumemeyer/watermarks-remover#354](https://github.com/guillaumemeyer/watermarks-remover/issues/354); the divergence is asserted in both directions, so it fails loudly if upstream fixes this. *Upstream fixed it in [#364](https://github.com/guillaumemeyer/watermarks-remover/pull/364) the same way; since v0.9.0 the two agree.*
-- **The engines run in a Web Worker.** A 64 MiB image is scanned and rebuilt in one synchronous pass, keyed-Gumbel does four pure-JS SHA-256 compressions per token, and the stylometry marker table walks the whole text once per pattern (measured here at 383 ms for a megabyte of ASCII, 1692 ms for the same text carrying zero-width characters). All of it now happens off the thread that draws the page. A `File` crosses by reference and the cleaned bytes come back transferred, so nothing is copied either way. A page opened straight off the filesystem cannot start a worker: the same op table then runs in place, and callers cannot tell the difference.
-- **The Inspector no longer refuses a recording the clean tab accepts.** It read every input whole and applied the 64 MiB cap to audio and video too, while the clean tab has exempted them since v0.4.0 because of the slice driver. The detector input contract now carries either the bytes or the `File`, and the five metadata detectors share one pass through the headers.
-- **A stale upstream checkout aborted the whole test run.** `tests/test_contains_any_parity.py` read a marker list at import time, outside its own `skipif`, so an `AttributeError` there ended collection for every file: *965 collected, 1 error*. The lists are read through `getattr` now, and a set built from a missing list is reported as a skip rather than dropped in silence.
-- The dropzone said EPUB needed a server in one line and offered it in the next; both READMEs left `av_meta.py` out of the line-for-line port list it has been in since v0.4.0; two dictionary keys were dead in all three locales. The nine script tags moved into the head with `defer`, so the fetch overlaps parsing instead of starting after it.
-- New parity anchors: `container_meta.py` tracked as six slices, because it is 4,000 lines and most of it is ZIP and PDF work with no counterpart here. The check now covers twelve sources. 1403 tests.
-
-### [v0.6.2](https://github.com/ivanusto/unmark-web/releases/tag/v0.6.2)
-
-- **A PNG text chunk can no longer inflate without a bound.** [guillaumemeyer/watermarks-remover#308](https://github.com/guillaumemeyer/watermarks-remover/pull/308) caps a decompressed `zTXt`/`iTXt` value at 1 MiB, because a few hundred KB of crafted deflate expands to hundreds of megabytes and the marker scan then copies it again. `inspectPng` reports such a chunk as *not fully inspected* rather than leaving it out of the findings, and `stripPng` drops it even in keep mode: a chunk nobody could read is not a chunk anyone can vouch for. The same change also means a text chunk whose deflate stream stops early is scanned as far as it decoded, instead of being discarded whole.
-- **A truncated ID3v2 tag is reported, and the audio survives it.** [guillaumemeyer/watermarks-remover#201](https://github.com/guillaumemeyer/watermarks-remover/pull/201): an MP3 whose tag header declares more tag than the file holds used to parse to nothing and be reported clean. It is now reported as truncated, with whatever markers the surviving bytes carry, and a clean drops the unreadable tag up to the first valid MPEG frame header. A file with no such header to find is preserved exactly as it was rather than emptied. Both drivers carry it, and the slice driver finds the frame header without reading the file into memory.
-- New parity anchors: `image_meta.py` `bd5d9f19f370`, `av_meta.py` `f012ed17276c`.
-
-### [v0.6.1](https://github.com/ivanusto/unmark-web/releases/tag/v0.6.1)
-
-- **The explanation moved below the tool.** v0.6.0 put it above, which pushed the textarea off the first screen: someone who came here to clean a file had to scroll past a description of the file to reach it. It now sits under the tab panels as an "About Unmark" section, separated by a rule, with the same three cards and the same weight on the caveat.
-- The three card icons are gone. The ochre rule on the caveat card carries the emphasis on its own.
-
-### [v0.6.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.6.0)
-
-- **The page now says what the tool is for.** A visitor landing on the demo got a one-line tagline and a row of tabs. There is now a lead paragraph and three cards above the fold: what it removes, **what it cannot remove**, and why the output can be trusted. The middle card gets the same weight as the other two rather than being a footnote, because "the metadata is gone" and "the watermark is gone" are different claims and that difference is the whole reason the Inspector tab exists. Title, meta description and tagline lead with watermark removal instead of describing the file formats.
-- **Morandi palette, light and dark.** Low-saturation, grey-leaning hues on a warm neutral ground: eucalyptus accent, sage, ochre and faded terracotta for status, unbleached linen or warm charcoal for the page. Every colour now comes from a token, including the thirteen that were written out by hand in rules across the stylesheet.
-- **The palette's accessibility claim is tested, not asserted.** `tests/test_theme_contrast.py` parses the tokens out of `css/app.css` and checks that every text and badge colour clears WCAG AA (4.5:1) against each background it can sit on, in both themes, compositing the translucent card colour over the page first. It also fails if the light theme forgets to override a colour token, which would silently leave a dark-theme value on a pale ground.
-- The tagline is hidden below 560px, where it wrapped to five lines and pushed the header controls off the row.
-
-### [v0.5.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.5.0)
-
-- **C2PA manifests in AVIF, HEIC, MP4 and MOV are recognized by user type, not by a substring.** C2PA stores its manifest in a BMFF container as a top-level `uuid` box whose user type is `d8fec3d6-1b0e-483c-9297-5828877ec481`, not as a `c2pa` box. This port special-cased XMP's user type and otherwise looked for ASCII `c2pa`/`jumb` in the payload, so a manifest carrying neither (an auxiliary `merkle` box, a binary manifest store) was caught by luck in strip-all mode and missed entirely in "keep non-AI metadata" mode. Ported from upstream #264, with the equal-size `free` replacement unchanged, so a cleaned file still keeps its length and its media offsets.
-- **Stylometry no longer scores a sample it cannot measure.** Below the 30-word calibration floor the score and confidence level are absent rather than `0.0` / `CLEAN`, and the Inspector says the sample was too short instead of showing a dash. Every report also carries a `density_tier`, and the marker table gained twenty patterns. Ported from upstream #258.
-- **A Layer A space homoglyph is informational, not probable** (upstream #273), in the finding-confidence helper this port mirrors from upstream's `common.py`.
-- **The drift check can now track a single definition.** `common.py` is not ported wholesale, only `classify_finding_confidence`, so hashing the whole file would have filed an issue every time upstream touched anything else. A source in `scripts/upstream-sources.json` can now carry a `slice`, and `common.py` is tracked that way. Before this, the #273 change was invisible here.
-- **CI was grading someone else's suite.** `pytest -q` ran from the repo root, where the workflow also checks out `upstream/`, so the verdict included upstream's own tests. Both workflows now run `pytest tests/ -q -rs`, the `-rs` because a parity file that skips itself when it cannot find its upstream module is otherwise a silent pass.
-- New parity anchors: `image_meta.py` `360da6bac49f`, `score_stylometry.py` `57dcbd2cb1ec`, and `common.py` tracked by slice.
-
-### [v0.4.2](https://github.com/ivanusto/unmark-web/releases/tag/v0.4.2)
-
-- **The UI now says it handles audio and video.** The engines have cleaned and inspected MP4/MOV/M4A/M4V, MP3, WAV and FLAC since v0.4.0 and the file pickers accepted them, but the tagline, the Files tab label, both dropzone descriptions, the Inspector's button and empty state, and the meta description all still described an image tool. Nine strings across all three locales, plus the two stale inline English fallbacks in `index.html`.
-- **Corrected a claim that predates audio and video.** The server engine description said images were still handled on this device. Every dropped file goes to the server when one is connected; only text pasted into the Text tab stays local.
-
-### [v0.4.1](https://github.com/ivanusto/unmark-web/releases/tag/v0.4.1)
-
-- **The truncated-MP4 divergence is gone: upstream took the same fix.** [guillaumemeyer/watermarks-remover#242](https://github.com/guillaumemeyer/watermarks-remover/pull/242) landed the tail-preserving rewrite this port already had, so `tests/test_av_meta_parity.py` now asserts the two agree instead of asserting they differ. #242 also added an `inspection_incomplete` flag that `clean_av` folds into `still_has_ai_metadata`; `cleanAv` and `cleanAvFile` carry it as `inspectionIncomplete`, and a truncated file is reported as unverified rather than clean.
-- New parity anchor: `av_meta.py` `579b01cbac34`.
-
-### [v0.4.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.4.0)
-
-- **Audio and video** (`js/av_meta.js`, port of upstream's `av_meta.py`): MP4/MOV/M4A/M4V, WAV, MP3 and FLAC, in the browser. MP4 reuses the ISOBMFF box walker that already backs AVIF and HEIC.
-- **Cleaning a video does not mean holding it.** The engine ships two drivers over the same primitives: a whole-buffer one the parity suite checks against upstream, and a slice driver that walks headers through `File.slice()` and returns a `Blob` of slices of the original file. On a 128 MB MP4 it reads 0.32 KB and produces byte-identical output. The 64 MiB browser limit no longer applies to audio and video.
-- **A truncated MP4 keeps its media.** Upstream's `_strip_moov_udta` rebuilds the file from the boxes that parsed and drops the rest, while the action list says the tail was kept; this port keeps it, as upstream #182 already established for PNG and ISOBMFF. Reported as [guillaumemeyer/watermarks-remover#240](https://github.com/guillaumemeyer/watermarks-remover/issues/240) and recorded in `scripts/upstream-sources.json` until it lands.
-- The Inspector reports audio and video findings through the same metadata detectors, and now refuses files above its own limit instead of reading them anyway.
-- New parity anchor: `av_meta.py` `992981922d27`.
-
-### [v0.3.1](https://github.com/ivanusto/unmark-web/releases/tag/v0.3.1)
-
-- **Emoji presentation selectors after five more bases** (upstream #200): `U+203C`, `U+2049`, `U+2139`, `U+2934` and `U+2935` are Emoji=Yes but sit outside the block ranges the base test covered, so a VS16 after them was stripped and the emoji reverted to its text glyph.
-- **Benign JPEG comments survive keep mode** (upstream #216): a `COM` segment is unkeyed free text, so it is now dropped only when *Remove all metadata* is on or the comment actually carries a provenance marker. `Generated by ImageMagick` and `Claude Monet` are comment prose, not evidence.
-- **The whole-file C2PA byte scan for JPEG is narrower** (same change): `jumb` and the XMP InstanceID namespace occur in ordinary files, so neither promotes a JPEG to C2PA on its own any more. Inside a parsed APP segment they still count.
-- **The marker scanner no longer builds a string of the whole file.** `containsAny` walks the bytes directly behind a first-byte dispatch table. On a 24 MB HEIC, the inspect, clean and re-inspect pass the app performs went from 2936 ms to 121 ms, with identical output. `tests/test_contains_any_parity.py` pins it against upstream `_contains_any`.
-- Parity anchors moved to `text_unicode.py` `ed86ed9715f4` and `image_meta.py` `3bde868717f5`.
-
-### [v0.3.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.3.0)
-
-- **Keyed-Gumbel (EXP) detection in the browser** (`js/gumbel.js`, port of upstream's `detect_gumbel.py`). The first statistical detector that needs no sidecar, no model weights and no network, so it reaches a verdict on the hosted page. It is a same-key replay: `clean` means *not this key*, never *no watermark*.
-- **Layer A hardening** (upstream #133): `U+180F`, `U+3164` and `U+FFA0` are kept next to their own script and stripped when they float; Unicode noncharacters and reserved default-ignorables are now strip-class; visible-layout format controls (Egyptian quadrat, Duployan, musical beaming) are kept next to their own script.
-- **Image containers** (upstream #176, #182, #183): a dropped ISOBMFF box is overwritten with an equal-size `free` box, so a cleaned AVIF or HEIC keeps its length and later media offsets stay valid; a truncated PNG chunk or ISOBMFF box keeps its tail instead of being dropped while the run claims the file was already clean.
-- Parity anchors moved to `text_unicode.py` `ab0197b06263`, `image_meta.py` `78e5a67db243`, and the new `detect_gumbel.py` `f908272084cd`.
-
-### [v0.2.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.2.0)
-
-- **Watermark Inspector**: a third tab that runs every detector on one input and reports each separately across the character, metadata and statistical layers, through one result contract (`js/detectors.js`).
-- **Stylometry** (`js/stylometry.js`, port of `score_stylometry.py`), capped at *uncertain* because a heuristic is not a watermark detector.
-- **Statistical sidecar** (`sidecar/unmark_stat.py`): Kirchenbauer/KGW and SynthID-Text detection with the reference `transformers` detectors, proxied same-origin by `serve_local.py --stat-upstream`. Local only, off by default.
-
-### [v0.1.0](https://github.com/ivanusto/unmark-web/releases/tag/v0.1.0)
-
-First release. Layer A text cleaning and image container cleaning in the browser, three locales, an optional local AI rewrite behind `serve_local.py`, and the parity suite that pins both engines to upstream.
-
-## Attribution & license
-
-MIT, see [LICENSE](LICENSE). The character tables, decision rules and container parsers are derived from watermarks-remover, © watermarks-remover contributors, MIT; the upstream notice is preserved in [NOTICE](NOTICE). Use on content you own or are authorised to modify; see upstream's [ethics notes](https://github.com/guillaumemeyer/watermarks-remover/blob/main/skills/remove-ai-marks/references/ethics.md).
+- 라이선스: [MIT](LICENSE). 원작자의 저작권 표시는 [LICENSE](LICENSE)와 [NOTICE](NOTICE)에 그대로 남겨 두었습니다.
+- 원작 README(영문, 기능과 엔진에 대한 자세한 설명): [README.upstream.md](README.upstream.md) · [繁體中文](README.upstream.zh-TW.md)

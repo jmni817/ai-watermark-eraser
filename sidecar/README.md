@@ -124,7 +124,7 @@ Both schemes are keyed, so the sidecar ships two profiles, `a` and `b`:
   3 GB more). `uncertain` at ≥ 1.9, else `clean`; never `detected`, because
   it is a heuristic, not a mark. Fewer than 100 tokens → `not_tested`.
   Calibration and the pair comparison are in the main
-  [README](../README.md#fast-detectgpt-zero-shot-on-the-sidecar).
+  [README](../README.upstream.md#fast-detectgpt-zero-shot-on-the-sidecar).
 
 ## Honest limits: read before trusting a verdict
 

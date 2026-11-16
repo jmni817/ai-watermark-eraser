@@ -1,6 +1,6 @@
 # Unmark（`unmark-web`）
 
-[English](README.md) · [繁體中文](README.zh-TW.md)
+[English](README.upstream.md) · [繁體中文](README.upstream.zh-TW.md)
 
 **移除 AI 工具留在生成內容上的數位浮水印與來源標記**：藏在文字裡看不見的 Unicode 字元，以及圖片、音訊、影片檔案裡的 C2PA、EXIF、XMP、ID3 中繼資料。
 它也會照實告訴你哪些浮水印移除不了：統計式浮水印藏在 token 的取樣方式裡，像素域浮水印藏在影像本身，清中繼資料碰不到它們。「檢測器」分頁會分別檢測這些。
