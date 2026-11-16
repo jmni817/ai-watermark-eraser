@@ -1,15 +1,15 @@
-# ai-watermark-remover
+# ai-watermark-eraser
 
 **사진과 글의 AI 태그를 제거하는 프로그램**
 
-AI로 만들거나 편집한 사진에는 "AI가 만들었음"을 알리는 메타데이터(C2PA 콘텐츠 자격 증명, EXIF/XMP의 `DigitalSourceType`, Stable Diffusion 프롬프트 등)가 함께 저장됩니다. AI가 쓴 글에는 눈에 보이지 않는 유니코드 문자가 섞여 있기도 합니다. ai-watermark-remover는 이런 흔적을 **스마트폰 브라우저 안에서** 지워 줍니다. 사진은 서버로 올라가지 않습니다.
+AI로 만들거나 편집한 사진에는 "AI가 만들었음"을 알리는 메타데이터(C2PA 콘텐츠 자격 증명, EXIF/XMP의 `DigitalSourceType`, Stable Diffusion 프롬프트 등)가 함께 저장됩니다. AI가 쓴 글에는 눈에 보이지 않는 유니코드 문자가 섞여 있기도 합니다. ai-watermark-eraser는 이런 흔적을 **스마트폰 브라우저 안에서** 지워 줍니다. 사진은 서버로 올라가지 않습니다.
 
 - 데모: https://jmni817.github.io/ai-watermark-eraser/
 - 기반 프로젝트: [ivanusto/unmark-web](https://github.com/ivanusto/unmark-web) (MIT)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-mobile-ko-dark.png">
-  <img alt="아이폰 크기 화면의 ai-watermark-remover. 상단에 서비스 이름과 언어 선택, '파일은 이 기기 밖으로 나가지 않아요' 안내, 사진·파일 / 글 / 정밀 검사 탭, '눌러서 사진 선택' 영역과 '색상 프로파일(ICC) 유지' 옵션이 보인다." src="docs/screenshot-mobile-ko-light.png" width="320">
+  <img alt="아이폰 크기 화면의 ai-watermark-eraser. 상단에 서비스 이름과 언어 선택, '파일은 이 기기 밖으로 나가지 않아요' 안내, 사진·파일 / 글 / 정밀 검사 탭, '눌러서 사진 선택' 영역과 '색상 프로파일(ICC) 유지' 옵션이 보인다." src="docs/screenshot-mobile-ko-light.png" width="320">
 </picture>
 
 ## 주요 기능
