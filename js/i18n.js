@@ -5,7 +5,7 @@
 
   const UPSTREAM = "https://github.com/guillaumemeyer/watermarks-remover";
   const REPO = "https://github.com/ivanusto/unmark-web";
-  const FORK = "https://github.com/jmni817/ai-watermark-remover";
+  const FORK = "https://github.com/jmni817/ai-watermark-eraser";
 
   const LS_KEY = "unmark-web.lang";
   const LS_KEY_LEGACY = "watermarks-remover-web.lang";  // key used before the rename
@@ -99,7 +99,7 @@
       c2paFound: "C2PA / Content Credentials found and removed", aiMetaFound: "AI metadata hints found and removed",
       avTruncated: "MP4 not fully inspected: the file is truncated, so its tail was preserved but could not be checked",
       filesDone: "{n} file(s) processed",
-      footerCredit: `Independent web client for <a href="${UPSTREAM}" target="_blank" rel="noopener noreferrer">guillaumemeyer/watermarks-remover</a> (MIT), with the same rules ported to JavaScript and parity-tested. Source: <a href="${REPO}" target="_blank" rel="noopener noreferrer">ivanusto/unmark-web</a> (MIT). Not affiliated with the upstream project. This fork (Korean & mobile UI): <a href="${FORK}" target="_blank" rel="noopener noreferrer">jmni817/ai-watermark-remover</a>.`,
+      footerCredit: `Independent web client for <a href="${UPSTREAM}" target="_blank" rel="noopener noreferrer">guillaumemeyer/watermarks-remover</a> (MIT), with the same rules ported to JavaScript and parity-tested. Source: <a href="${REPO}" target="_blank" rel="noopener noreferrer">ivanusto/unmark-web</a> (MIT). Not affiliated with the upstream project. This fork (Korean & mobile UI): <a href="${FORK}" target="_blank" rel="noopener noreferrer">jmni817/ai-watermark-eraser</a>.`,
       footerPrivacy: "No analytics, no web fonts, no third-party requests. Network calls only go to the server URL you configure.",
       /* ---- Watermark Inspector ---- */
       tabInspect: "Inspector",
@@ -263,7 +263,7 @@
       c2paFound: "C2PA / 콘텐츠 자격 증명을 찾아서 제거했어요", aiMetaFound: "AI 관련 메타데이터를 찾아서 제거했어요",
       avTruncated: "MP4를 끝까지 확인하지 못했어요. 파일이 잘려 있어서 뒷부분은 그대로 두었지만 검사하지는 못했어요",
       filesDone: "파일 {n}개 처리 완료",
-      footerCredit: `<a href="${REPO}" target="_blank" rel="noopener noreferrer">ivanusto/unmark-web</a>(MIT)을 포크해 한국어와 모바일에 맞게 다듬은 버전이에요. 엔진 규칙은 <a href="${UPSTREAM}" target="_blank" rel="noopener noreferrer">guillaumemeyer/watermarks-remover</a>(MIT)에서 왔어요. 소스: <a href="${FORK}" target="_blank" rel="noopener noreferrer">jmni817/ai-watermark-remover</a>. 원작 프로젝트와는 관련이 없어요.`,
+      footerCredit: `<a href="${REPO}" target="_blank" rel="noopener noreferrer">ivanusto/unmark-web</a>(MIT)을 포크해 한국어와 모바일에 맞게 다듬은 버전이에요. 엔진 규칙은 <a href="${UPSTREAM}" target="_blank" rel="noopener noreferrer">guillaumemeyer/watermarks-remover</a>(MIT)에서 왔어요. 소스: <a href="${FORK}" target="_blank" rel="noopener noreferrer">jmni817/ai-watermark-eraser</a>. 원작 프로젝트와는 관련이 없어요.`,
       footerPrivacy: "분석 도구, 웹폰트, 외부 요청이 없어요. 네트워크 요청은 직접 설정한 서버 주소로만 가요.",
       tabInspect: "정밀 검사",
       inspectIntro: "같은 입력에 모든 검사기를 돌리고 결과를 따로 보여 줘요. 글자 단위 표시, 파일 메타데이터, 통계적 워터마크는 서로 다른 층이라 하나를 지웠다고 다른 것까지 지워지지는 않아요.",

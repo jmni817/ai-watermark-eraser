@@ -4,7 +4,7 @@
 
 AI로 만들거나 편집한 사진에는 "AI가 만들었음"을 알리는 메타데이터(C2PA 콘텐츠 자격 증명, EXIF/XMP의 `DigitalSourceType`, Stable Diffusion 프롬프트 등)가 함께 저장됩니다. AI가 쓴 글에는 눈에 보이지 않는 유니코드 문자가 섞여 있기도 합니다. ai-watermark-remover는 이런 흔적을 **스마트폰 브라우저 안에서** 지워 줍니다. 사진은 서버로 올라가지 않습니다.
 
-- 데모: https://jmni817.github.io/ai-watermark-remover/
+- 데모: https://jmni817.github.io/ai-watermark-eraser/
 - 기반 프로젝트: [ivanusto/unmark-web](https://github.com/ivanusto/unmark-web) (MIT)
 
 <picture>
