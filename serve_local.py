@@ -44,6 +44,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+# Windows reads MIME types from the registry, where .js is often mapped to text/plain;
+# with nosniff the browser then refuses to run the scripts. Pin the types we serve.
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("image/svg+xml", ".svg")
+
 ROOT = Path(__file__).resolve().parent
 ALLOWED = {"/": ROOT / "index.html", "/index.html": ROOT / "index.html", "/favicon.svg": ROOT / "favicon.svg"}
 for sub in ("css", "js"):
