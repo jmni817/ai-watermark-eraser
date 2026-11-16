@@ -549,7 +549,7 @@
     return { hasC2pa, hasAi: hasAi || hasC2pa, findings };
   }
 
-  function stripJpeg(u8, { stripAllApp = true } = {}) {
+  function stripJpeg(u8, { stripAllApp = true, keepIcc = false } = {}) {
     if (detectFormat(u8) !== "jpeg") throw new Error("not JPEG");
     const actions = []; const out = [new Uint8Array([0xff, 0xd8])];
     let i = 2; const n = u8.length;
@@ -574,6 +574,9 @@
       let keep = false, drop = false;
       if (marker >= 0xe0 && marker <= 0xef) {
         if (marker === 0xeb) { drop = true; actions.push("drop APP11 (C2PA/JUMBF)"); }
+        // Fork option: an APP2 ICC profile is colour data, not provenance. Phone photos are
+        // Display P3, so dropping it visibly dulls them. Default off keeps upstream parity.
+        else if (keepIcc && marker === 0xe2 && latin1(payload.subarray(0, 12)) === "ICC_PROFILE\0" && !containsAny(payload, ALL_HINTS).length) keep = true;
         else if (stripAllApp && marker !== 0xe0) { drop = true; actions.push(`drop APP${marker - 0xe0}`); }
         else if (containsAny(payload, ALL_HINTS).length) { drop = true; actions.push(`drop APP${marker - 0xe0} (AI/C2PA markers)`); }
         else keep = true;
@@ -628,7 +631,7 @@
 
   const WEBP_META_FLAGS = { ICCP: 0x20, EXIF: 0x08, "XMP ": 0x04 };
 
-  function stripWebp(u8, { stripAllMetadata = true } = {}) {
+  function stripWebp(u8, { stripAllMetadata = true, keepIcc = false } = {}) {
     const { chunks, notes } = webpChunks(u8);
     if (!chunks.length && notes[0] === "not a WebP") throw new Error("not WebP");
     if (notes.length) throw new Error("malformed WebP: " + notes.join("; "));
@@ -636,6 +639,7 @@
     for (const c of chunks) {
       let drop = c.fourcc.toUpperCase() === "C2PA";
       if (c.fourcc in WEBP_META_FLAGS) drop = stripAllMetadata || containsAny(c.payload, ALL_HINTS).length > 0;
+      if (keepIcc && c.fourcc === "ICCP" && !containsAny(c.payload, ALL_HINTS).length) drop = false;
       if (drop) { actions.push(`drop WebP chunk ${c.fourcc}`); removedFlags |= WEBP_META_FLAGS[c.fourcc] || 0; }
       else kept.push(c);
     }
@@ -1430,11 +1434,11 @@
   }
 
   /** clean(u8, {stripAllMetadata}) -> {format, data, actions} ; throws on unsupported/malformed. */
-  function clean(u8, { stripAllMetadata = true } = {}) {
+  function clean(u8, { stripAllMetadata = true, keepIcc = false } = {}) {
     const fmt = detectFormat(u8);
     if (fmt === "png") return { format: fmt, ...stripPng(u8, { stripAllText: stripAllMetadata }) };
-    if (fmt === "jpeg") return { format: fmt, ...stripJpeg(u8, { stripAllApp: stripAllMetadata }) };
-    if (fmt === "webp") return { format: fmt, ...stripWebp(u8, { stripAllMetadata }) };
+    if (fmt === "jpeg") return { format: fmt, ...stripJpeg(u8, { stripAllApp: stripAllMetadata, keepIcc }) };
+    if (fmt === "webp") return { format: fmt, ...stripWebp(u8, { stripAllMetadata, keepIcc }) };
     if (fmt === "avif" || fmt === "heic") return { format: fmt, ...stripIsobmff(u8, fmt, { stripAllMetadata }) };
     if (fmt === "bmp") return { format: fmt, ...stripBmp(u8, { stripAllMetadata }) };
     if (fmt === "gif") return { format: fmt, ...stripGif(u8, { stripAllMetadata }) };

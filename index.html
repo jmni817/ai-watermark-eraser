@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="dark light" />
-  <title data-i18n="docTitle">Unmark: remove AI watermarks and metadata, in your browser</title>
+  <title data-i18n="docTitle">ai-watermark-remover · 사진과 글의 AI 태그 제거</title>
   <meta name="description" data-i18n-content="docDesc" content="Remove the digital watermarks AI tools leave behind: invisible Unicode marks in text and C2PA/EXIF/XMP/ID3 metadata in images, audio and video. Runs locally in your browser, with an Inspector that also tests for the statistical watermarks no metadata strip can touch." />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src *; object-src 'none'; base-uri 'none'; form-action 'none'" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -30,10 +30,10 @@
   <a class="sr-only" href="#main" data-i18n="skipLink">Skip to content</a>
   <div class="app-container">
     <header>
-      <a href="#" class="brand" aria-label="Unmark: remove AI watermarks and metadata, in your browser">
+      <a href="#" class="brand" aria-label="ai-watermark-remover">
         <div class="brand-icon" aria-hidden="true">🛡️</div>
         <div>
-          <div class="brand-title" data-i18n="appTitle">Unmark</div>
+          <div class="brand-title" data-i18n="appTitle">ai-watermark-remover</div>
           <div class="brand-sub" data-i18n="appSub">Remove AI watermarks and provenance metadata · in your browser · works with watermarks-remover</div>
         </div>
       </a>
@@ -41,7 +41,7 @@
         <select class="lang-select" id="sel-lang" data-i18n-title="btnLangTitle" title="Interface language" aria-label="Interface language"></select>
         <button class="btn-icon" id="btn-theme" type="button" data-i18n-title="btnThemeTitle" title="Toggle theme" aria-label="Toggle theme" aria-pressed="true">🌙</button>
         <button class="btn-icon" id="btn-settings" type="button" data-i18n-title="btnSettingsTitle" title="Server settings" aria-label="Server settings" aria-expanded="false" aria-controls="settings-panel">⚙️</button>
-        <a href="https://github.com/ivanusto/unmark-web" target="_blank" rel="noopener noreferrer" class="btn-icon" title="GitHub" aria-label="Source on GitHub">
+        <a href="https://github.com/jmni817/ai-watermark-remover" target="_blank" rel="noopener noreferrer" class="btn-icon" title="GitHub" aria-label="Source on GitHub">
           <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
       </div>
@@ -87,18 +87,36 @@
       </section>
 
       <div class="tabs-nav" role="tablist" aria-label="Tools">
-        <button class="tab-btn active" role="tab" id="tab-btn-text" aria-selected="true" aria-controls="tab-text" data-tab="tab-text" type="button">
-          <span aria-hidden="true">📝</span><span data-i18n="tabText">Text (Layer A)</span>
+        <button class="tab-btn active" role="tab" id="tab-btn-file" aria-selected="true" aria-controls="tab-file" data-tab="tab-file" type="button">
+          <span aria-hidden="true">📷</span><span data-i18n="tabFile">Files &amp; media (metadata / C2PA)</span>
         </button>
-        <button class="tab-btn" role="tab" id="tab-btn-file" aria-selected="false" aria-controls="tab-file" data-tab="tab-file" tabindex="-1" type="button">
-          <span aria-hidden="true">📁</span><span data-i18n="tabFile">Files &amp; media (metadata / C2PA)</span>
+        <button class="tab-btn" role="tab" id="tab-btn-text" aria-selected="false" aria-controls="tab-text" data-tab="tab-text" tabindex="-1" type="button">
+          <span aria-hidden="true">📝</span><span data-i18n="tabText">Text (Layer A)</span>
         </button>
         <button class="tab-btn" role="tab" id="tab-btn-inspect" aria-selected="false" aria-controls="tab-inspect" data-tab="tab-inspect" tabindex="-1" type="button">
           <span aria-hidden="true">🔬</span><span data-i18n="tabInspect">Inspector</span>
         </button>
       </div>
 
-      <div class="tab-pane active" id="tab-text" role="tabpanel" aria-labelledby="tab-btn-text">
+      <div class="tab-pane active" id="tab-file" role="tabpanel" aria-labelledby="tab-btn-file">
+        <div class="main-card">
+          <input type="file" id="file-input" class="sr-only" multiple accept=".png,.jpg,.jpeg,.webp,.avif,.heic,.heif,.bmp,.gif,.tif,.tiff,.mp4,.mov,.m4v,.m4a,.mp3,.wav,.flac,.txt,.md,.markdown,.html,.htm,.svg,.pdf,.docx,.odt,.epub" />
+          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-describedby="dropzone-desc">
+            <div class="dropzone-icon" aria-hidden="true">📥</div>
+            <div class="dropzone-title" data-i18n="dropTitle">Drop files here, or press Enter to browse</div>
+            <div class="dropzone-desc" id="dropzone-desc" data-i18n="dropDescBrowser">On this device: PNG, JPEG, WebP, AVIF, HEIC, BMP, GIF, TIFF and MP4, MOV, M4A, M4V, MP3, WAV, FLAC (metadata; audio and video at any size), TXT, and MD/HTML/SVG with their metadata, AI comments, frontmatter and embedded images. PDF, DOCX, ODT, EPUB need a server.</div>
+          </div>
+          <div class="options-bar mt-14">
+            <div class="options-group">
+              <label class="checkbox-label" data-i18n-title="optKeepMetaTitle"><input type="checkbox" id="opt-keep-meta" /><span data-i18n="optKeepMeta">Keep non-AI metadata (only drop AI/C2PA hits)</span></label>
+              <label class="checkbox-label" data-i18n-title="optKeepIccTitle"><input type="checkbox" id="opt-keep-icc" checked /><span data-i18n="optKeepIcc">Keep the colour profile (ICC)</span></label>
+            </div>
+          </div>
+          <div id="file-results-container" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-text" role="tabpanel" aria-labelledby="tab-btn-text" hidden>
         <div class="main-card">
           <div class="options-bar">
             <div class="options-group">
@@ -171,23 +189,6 @@
             </div>
           </div>
           <p class="footnote rewrite-hint" id="rewrite-hint" hidden data-i18n="rewriteDisabledHint"></p>
-        </div>
-      </div>
-
-      <div class="tab-pane" id="tab-file" role="tabpanel" aria-labelledby="tab-btn-file" hidden>
-        <div class="main-card">
-          <input type="file" id="file-input" class="sr-only" multiple accept=".png,.jpg,.jpeg,.webp,.avif,.heic,.heif,.bmp,.gif,.tif,.tiff,.mp4,.mov,.m4v,.m4a,.mp3,.wav,.flac,.txt,.md,.markdown,.html,.htm,.svg,.pdf,.docx,.odt,.epub" />
-          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-describedby="dropzone-desc">
-            <div class="dropzone-icon" aria-hidden="true">📥</div>
-            <div class="dropzone-title" data-i18n="dropTitle">Drop files here, or press Enter to browse</div>
-            <div class="dropzone-desc" id="dropzone-desc" data-i18n="dropDescBrowser">On this device: PNG, JPEG, WebP, AVIF, HEIC, BMP, GIF, TIFF and MP4, MOV, M4A, M4V, MP3, WAV, FLAC (metadata; audio and video at any size), TXT, and MD/HTML/SVG with their metadata, AI comments, frontmatter and embedded images. PDF, DOCX, ODT, EPUB need a server.</div>
-          </div>
-          <div class="options-bar mt-14">
-            <div class="options-group">
-              <label class="checkbox-label" data-i18n-title="optKeepMetaTitle"><input type="checkbox" id="opt-keep-meta" /><span data-i18n="optKeepMeta">Keep non-AI metadata (only drop AI/C2PA hits)</span></label>
-            </div>
-          </div>
-          <div id="file-results-container" aria-live="polite"></div>
         </div>
       </div>
 

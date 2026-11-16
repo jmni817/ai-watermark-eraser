@@ -40,7 +40,8 @@
   --brand-from: #7d8f8b;      /* the brand tile is the one place with a wash */
   --brand-to: #9a8e88;
   --on-brand: #f4f1ec;
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Korean faces first: system fonts only, so the page still makes no third-party requests. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "맑은 고딕", system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -873,3 +874,36 @@ td.inspect-score { margin-top: 0; }
 .gumbel-panel .footnote { margin-bottom: 0; }
 .gumbel-panel input[type="password"] { flex: 1 1 220px; }
 .gumbel-panel input[type="text"] { flex: 0 0 110px; min-width: 90px; }
+
+/* ---- Korean & mobile layer (jmni817 fork) ---------------------------------- */
+:lang(ko) body { word-break: keep-all; overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  /* Three equal tabs that always fit the screen instead of a row that overflows it. */
+  .tabs-nav { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .tab-btn { justify-content: center; padding: 10px 6px; font-size: 14px; min-height: 44px; text-align: center; }
+  .main-card { padding: 16px; }
+
+  /* The picker is the whole point of the page on a phone: make it a big thumb target. */
+  .dropzone { padding: 32px 16px; }
+  .dropzone-icon { font-size: 40px; }
+  .dropzone-title { font-size: 18px; }
+
+  /* Result actions become full-width, stacked buttons. */
+  .file-actions { flex-direction: column; align-items: stretch; margin-top: 12px; }
+  .file-actions .btn { width: 100%; justify-content: center; min-height: 48px; font-size: 15px; }
+
+  .header-controls { gap: 6px; }
+  /* The product name is one hyphenated word; never break it mid-word. */
+  .brand-title { font-size: 14px; white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
+  .brand > div:last-child { min-width: 0; }
+  .brand-icon { width: 32px; height: 32px; font-size: 18px; }
+  .btn-icon { width: 36px; height: 36px; }
+  .lang-select { height: 36px; }
+  /* The source link is repeated in the footer; on a phone the header needs the room. */
+  .header-controls a.btn-icon { display: none; }
+  .brand { min-width: 0; gap: 8px; }
+  .lang-select { max-width: 76px; }
+  .app-container { padding-left: 16px; padding-right: 16px; }
+  .toast { left: 16px; right: 16px; bottom: 16px; }
+}

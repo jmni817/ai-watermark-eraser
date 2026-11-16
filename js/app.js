@@ -710,7 +710,20 @@
       ui.status.textContent = t("fileDone", { from: fmtBytes(file.size), to: fmtBytes(out.blob.size), engine: viaServer ? t("viaServer") : t("viaBrowser") });
       ui.findings.replaceChildren();
       for (const line of out.findings) ui.findings.appendChild(el("div", null, "• " + line));
-      const a = el("a", "btn btn-primary", "💾 " + t("download")); a.href = url; a.download = newName; ui.actions.appendChild(a);
+      /* On phones a download lands in Files/Downloads, not the photo gallery. The share
+       * sheet offers "Save Image" (iOS) / "Save to gallery" (Android), so when the
+       * browser can share this file, that becomes the primary action. */
+      const shareFile = new File([out.blob], newName, { type: out.blob.type });
+      const canShare = !!(navigator.canShare && navigator.canShare({ files: [shareFile] }));
+      if (canShare) {
+        const s = el("button", "btn btn-primary", "📲 " + t("btnShareSave")); s.type = "button";
+        s.addEventListener("click", async () => {
+          try { await navigator.share({ files: [shareFile] }); }
+          catch (err) { if (err && err.name !== "AbortError") toast(t("shareFailed"), "⚠️"); }
+        });
+        ui.actions.appendChild(s);
+      }
+      const a = el("a", canShare ? "btn btn-secondary" : "btn btn-primary", "💾 " + t("download")); a.href = url; a.download = newName; ui.actions.appendChild(a);
     } catch (e) {
       ui.c.classList.add("error"); ui.icon.textContent = "⚠️"; ui.status.classList.add("error");
       ui.status.textContent = e instanceof WmApi.ApiError ? t("errServer", { error: e.message }) : e.message;
@@ -721,7 +734,7 @@
     if (IMAGE_EXT.has(ext)) {
       /* The File goes to the worker by reference, so nothing is copied on the
        * way in, and the cleaned bytes come back as a transferred buffer. */
-      const r = await Engine.call("cleanImageFile", { file, stripAllMetadata: !$("opt-keep-meta").checked });
+      const r = await Engine.call("cleanImageFile", { file, stripAllMetadata: !$("opt-keep-meta").checked, keepIcc: $("opt-keep-icc").checked });
       const before = r.before;
       const mime = IMAGE_MIME[r.format] || "application/octet-stream";
       const findings = [];

@@ -32,10 +32,10 @@
     : u8.slice().buffer;
 
   const ops = {
-    async cleanImageFile({ file, stripAllMetadata }) {
+    async cleanImageFile({ file, stripAllMetadata, keepIcc }) {
       const u8 = await bytesOf(file);
       const before = ImageMeta.inspect(u8);
-      const r = ImageMeta.clean(u8, { stripAllMetadata });
+      const r = ImageMeta.clean(u8, { stripAllMetadata, keepIcc: !!keepIcc });
       return { before, format: r.format, actions: r.actions, buffer: bufferOf(r.data) };
     },
 
